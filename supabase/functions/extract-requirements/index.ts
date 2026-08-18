@@ -19,8 +19,11 @@ const CATEGORY_MAP: Record<string, string> = {
   smartphone: "smartphones",
   phone: "smartphones",
   mobile: "smartphones",
+  iphone: "smartphones",
+  android: "smartphones",
   laptop: "laptops",
   notebook: "laptops",
+  macbook: "laptops",
   headphones: "headphones",
   headphone: "headphones",
   earbuds: "headphones",
@@ -76,7 +79,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const apiKey = Deno.env.get("OPENROUTER_API_KEY");
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
@@ -87,11 +90,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const prompt = `You are a shopping assistant that extracts structured shopping requirements from a user's natural-language request.
-
-Analyze this shopping request: "${query}"
-
-Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
+    const systemPrompt = `You are a shopping assistant that extracts structured shopping requirements from a user's natural-language request. Return ONLY a valid JSON object with this exact structure:
 {
   "category": "the product category in singular form (e.g. smartphone, laptop, headphones, smartwatch, camera, television, tablet, shoes, jacket, bag, sunglasses, perfume, skincare)",
   "maxBudget": <number or null>,
@@ -100,32 +99,36 @@ Return ONLY a JSON object (no markdown, no explanation) with this exact structur
   "mustHaveSpecs": {"specName": "required value or condition"},
   "searchKeywords": ["2-4 keywords to search a product catalog"]
 }
-
 Rules:
 - maxBudget is a number (e.g. 40000), or null if not specified
 - priorities must be ordered from most to least important
 - If currency symbol like ₹ or $ is present, extract the numeric value only
 - Keep values simple and lowercase
-- Respond with valid JSON only, no backticks, no code fences`;
+- Respond with valid JSON only, no backticks, no code fences, no explanation`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            responseMimeType: "application/json",
-          },
+          model: "google/gemini-2.0-flash-exp:free",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: query },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
         }),
       },
     );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Gemini API error:", response.status, errText);
+      console.error("OpenRouter API error:", response.status, errText);
       return new Response(
         JSON.stringify({ error: "AI service error" }),
         {
@@ -136,7 +139,7 @@ Rules:
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const text = data?.choices?.[0]?.message?.content ?? "";
 
     let parsed: ExtractedRequirements;
     try {

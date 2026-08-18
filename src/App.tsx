@@ -10,6 +10,7 @@ import { AnalyzingState } from "@/components/AnalyzingState";
 import { RequirementsPanel } from "@/components/RequirementsPanel";
 import { MatchCard } from "@/components/MatchCard";
 import { ComparisonTable } from "@/components/ComparisonTable";
+import { saveSession, saveRecommendations } from "@/lib/db";
 
 const EXAMPLES = [
   "I need a smartphone under $500 for gaming and college. Battery life is more important than camera quality.",
@@ -64,11 +65,17 @@ export default function App() {
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
+
+      // Persist session + top 3 recommendations (non-blocking)
+      const sessionId = await saveSession(q, req);
+      if (sessionId) {
+        await saveRecommendations(sessionId, rankedProducts.slice(0, 3));
+      }
     } catch (err) {
       console.error(err);
       setError(
         err instanceof Error && err.message.includes("AI service not configured")
-          ? "The AI service is not configured. Add a Gemini API key to use the assistant."
+          ? "The AI service is not configured. Add an OpenRouter API key to use the assistant."
           : "Something went wrong analyzing your request. Please try again.",
       );
       setStage("landing");
