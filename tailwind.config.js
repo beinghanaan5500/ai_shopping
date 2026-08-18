@@ -8,7 +8,7 @@ export default {
         paper: '#faf8f5',
         'paper-2': '#f3efe9',
         line: '#e5dfd5',
-        muted: '#6b6358',
+        muted: '#5c5347',
         accent: '#c8541a',
         'accent-soft': '#f5e6dc',
         success: '#4a7c59',

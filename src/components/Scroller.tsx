@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import { useRef } from "react";
 import { Layers, MessageSquareText, Gauge, Trophy } from "lucide-react";
 
@@ -41,52 +41,102 @@ export function Scroller() {
   });
 
   return (
-    <section ref={ref} className="relative bg-ink text-paper">
-      <div className="mx-auto max-w-5xl px-6">
-        {SCENES.map((scene, i) => {
-          const start = i / SCENES.length;
-          const end = (i + 1) / SCENES.length;
-          const mid = (start + end) / 2;
+    // Tall scroll track: one viewport-height of scroll per scene, plus a little
+    // extra so the last scene has room to settle before the section ends.
+    <section
+      ref={ref}
+      className="relative bg-ink text-paper"
+      style={{ height: `${SCENES.length * 100}vh` }}
+    >
+      {/* Inner stage pins to the top of the viewport while the track scrolls past. */}
+      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden">
+        {/* Progress rail */}
+        <div className="pointer-events-none absolute left-1/2 top-8 z-10 flex -translate-x-1/2 gap-1.5">
+          {SCENES.map((s, i) => (
+            <Tick key={s.num} index={i} total={SCENES.length} progress={scrollYProgress} />
+          ))}
+        </div>
 
-          return (
-            <Scene
-              key={scene.num}
-              scene={scene}
-              index={i}
-              progress={scrollYProgress}
-              start={start}
-              mid={mid}
-              end={end}
-            />
-          );
-        })}
+        {SCENES.map((scene, i) => (
+          <Scene
+            key={scene.num}
+            scene={scene}
+            index={i}
+            total={SCENES.length}
+            progress={scrollYProgress}
+          />
+        ))}
       </div>
     </section>
+  );
+}
+
+function Tick({
+  index,
+  total,
+  progress,
+}: {
+  index: number;
+  total: number;
+  progress: MotionValue<number>;
+}) {
+  const step = 1 / total;
+  const center = (index + 0.5) * step;
+  const opacity = useTransform(
+    progress,
+    [center - step * 0.5, center, center + step * 0.5],
+    [0.3, 1, 0.3],
+  );
+  const scaleX = useTransform(
+    progress,
+    [center - step * 0.5, center, center + step * 0.5],
+    [1, 2.4, 1],
+  );
+  return (
+    <motion.span
+      style={{ opacity, scaleX }}
+      className="h-1 w-6 origin-center rounded-full bg-paper"
+    />
   );
 }
 
 interface SceneProps {
   scene: (typeof SCENES)[number];
   index: number;
-  progress: any;
-  start: number;
-  mid: number;
-  end: number;
+  total: number;
+  progress: MotionValue<number>;
 }
 
-function Scene({ scene, index, progress, start, mid, end }: SceneProps) {
-  const opacity = useTransform(progress, [start, mid, end], [0, 1, 0]);
-  const y = useTransform(progress, [start, mid, end], [60, 0, -60]);
-  const scale = useTransform(progress, [start, mid, end], [0.96, 1, 0.96]);
+function Scene({ scene, index, total, progress }: SceneProps) {
+  const step = 1 / total;
+  const center = (index + 0.5) * step;
+
+  // Overlapping fade windows so adjacent scenes cross-fade — never a blank gap.
+  const fadeInStart = center - step * 0.7;
+  const fadeInEnd = center - step * 0.2;
+  const fadeOutStart = center + step * 0.2;
+  const fadeOutEnd = center + step * 0.7;
+
+  const opacity = useTransform(
+    progress,
+    [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd],
+    [0, 1, 1, 0],
+  );
+  const y = useTransform(progress, [fadeInStart, center, fadeOutEnd], [48, 0, -48]);
+  const scale = useTransform(
+    progress,
+    [fadeInStart, center, fadeOutEnd],
+    [0.97, 1, 0.97],
+  );
 
   const Icon = scene.icon;
 
   return (
-    <div className="sticky flex min-h-[70vh] items-center justify-center py-20">
-      <motion.div
-        style={{ opacity, y, scale }}
-        className="max-w-2xl text-center"
-      >
+    <motion.div
+      style={{ opacity, y, scale }}
+      className="absolute inset-0 flex items-center justify-center px-6"
+    >
+      <div className="w-full max-w-2xl text-center">
         <div className="mx-auto mb-8 flex h-14 w-14 items-center justify-center rounded-full border border-paper/20">
           <Icon className={`h-6 w-6 ${scene.accent}`} />
         </div>
@@ -105,13 +155,13 @@ function Scene({ scene, index, progress, start, mid, end }: SceneProps) {
             {Array.from({ length: 7 }).map((_, i) => (
               <div
                 key={i}
-                className="h-24 w-16 rounded-lg border border-paper/15 bg-paper/5"
+                className="h-20 w-14 rounded-lg border border-paper/15 bg-paper/5 sm:h-24 sm:w-16"
               />
             ))}
           </div>
         )}
         {index === 1 && (
-          <div className="mt-10 rounded-xl border border-paper/15 bg-paper/5 px-5 py-4 text-left text-sm text-paper/70">
+          <div className="mx-auto mt-10 max-w-md rounded-xl border border-paper/15 bg-paper/5 px-5 py-4 text-left text-sm text-paper/70">
             "I need a phone under $400 for gaming and college. Battery matters
             more than camera."
           </div>
@@ -153,7 +203,7 @@ function Scene({ scene, index, progress, start, mid, end }: SceneProps) {
             <div className="text-sm text-paper/60">92% match · $349</div>
           </div>
         )}
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 }

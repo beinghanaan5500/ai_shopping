@@ -13,10 +13,26 @@ import { ComparisonTable } from "@/components/ComparisonTable";
 import { saveSession, saveRecommendations } from "@/lib/db";
 
 const EXAMPLES = [
-  "I need a smartphone under $500 for gaming and college. Battery life is more important than camera quality.",
-  "Looking for wireless headphones under $200 for commuting and gym. Noise cancellation matters most.",
-  "I want a laptop under $800 for college work and light gaming. Portability is my top priority.",
-  "Need a smartwatch under $300 for fitness tracking and sleep monitoring. Battery should last at least 2 days.",
+  {
+    label: "Phone for gaming, under $500",
+    query:
+      "I need a smartphone under $500 for gaming and college. Battery life is more important than camera quality.",
+  },
+  {
+    label: "Headphones for the gym, under $200",
+    query:
+      "Looking for wireless headphones under $200 for commuting and gym. Noise cancellation matters most.",
+  },
+  {
+    label: "Portable laptop, under $800",
+    query:
+      "I want a laptop under $800 for college work and light gaming. Portability is my top priority.",
+  },
+  {
+    label: "Fitness smartwatch, under $300",
+    query:
+      "Need a smartwatch under $300 for fitness tracking and sleep monitoring. Battery should last at least 2 days.",
+  },
 ];
 
 export default function App() {
@@ -112,33 +128,48 @@ export default function App() {
             <RequirementsPanel requirements={requirements} query={query} />
           </div>
 
-          <div className="mt-10">
-            <div className="mb-5 flex items-end justify-between">
-              <h2 className="font-display text-2xl font-medium text-ink">
-                Your matches
-              </h2>
+          {/* Best match — featured, with its explanation right alongside */}
+          <div className="mt-8">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
+                Top pick
+              </span>
+              <div className="h-px flex-1 bg-line/60" />
               <span className="text-sm text-muted">
                 {ranked.length} products scored
               </span>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
-              {top3.map((p, i) => (
-                <MatchCard
-                  key={p.id}
-                  product={p}
-                  isBest={i === 0}
-                  index={i}
-                />
-              ))}
+            <div className="grid items-stretch gap-6 lg:grid-cols-5">
+              <div className="lg:col-span-3">
+                <MatchCard product={best} isBest index={0} />
+              </div>
+              <div className="lg:col-span-2">
+                <BestMatchExplanation best={best} requirements={requirements} />
+              </div>
             </div>
           </div>
+
+          {/* Runners-up — visibly secondary */}
+          {top3.length > 1 && (
+            <div className="mt-12">
+              <div className="mb-4 flex items-center gap-3">
+                <h2 className="font-display text-lg font-medium text-ink">
+                  Runners-up
+                </h2>
+                <div className="h-px flex-1 bg-line/60" />
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                {top3.slice(1).map((p, i) => (
+                  <MatchCard key={p.id} product={p} index={i + 1} />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-12">
             <ComparisonTable products={top3} />
           </div>
-
-          <BestMatchExplanation best={best} requirements={requirements} />
 
           <div className="mt-12 flex justify-center">
             <button
@@ -194,7 +225,7 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
   return (
     <>
       <section className="relative">
-        <div className="mx-auto max-w-4xl px-6 pb-16 pt-16 sm:pt-24">
+        <div className="mx-auto max-w-4xl px-6 pb-12 pt-12 sm:pt-16">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -206,14 +237,14 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
               Transparent scoring, not just AI picks
             </div>
             <h1 className="font-display text-4xl font-medium leading-[1.05] tracking-tight text-ink sm:text-5xl md:text-6xl">
-              Tell us what you're
+              Describe it. We&apos;ll
               <br />
-              <span className="italic text-accent">shopping for.</span>
+              <span className="italic text-accent">score the match.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-relaxed text-muted sm:text-lg">
-              Describe what you need in plain words. We extract your priorities,
-              score real products against them, and show you the best match —
-              with the math visible.
+            <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-muted sm:text-lg">
+              Tell us what you need in plain words. We extract your priorities,
+              score real products against them, and show your best match — with
+              the math visible.
             </p>
           </motion.div>
 
@@ -222,7 +253,7 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto mt-10 max-w-2xl"
+            className="mx-auto mt-7 max-w-2xl"
           >
             <div className="group relative rounded-2xl border border-line bg-paper p-2 shadow-[0_2px_20px_-8px_rgba(26,26,26,0.12)] transition-all focus-within:border-ink focus-within:shadow-[0_4px_30px_-8px_rgba(26,26,26,0.2)]">
               <textarea
@@ -245,7 +276,7 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 text-sm font-medium text-paper transition-all hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-paper shadow-[0_4px_16px_-4px_rgba(200,84,26,0.5)] transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
                   <Search className="h-4 w-4" />
                   Find my match
@@ -269,9 +300,9 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.5 }}
-            className="mx-auto mt-8 max-w-2xl"
+            className="mx-auto mt-6 max-w-2xl"
           >
-            <div className="mb-2 text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted/60">
+            <div className="mb-2.5 text-center text-[11px] font-medium uppercase tracking-[0.14em] text-muted/60">
               Try an example
             </div>
             <div className="flex flex-wrap justify-center gap-2">
@@ -279,12 +310,12 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
                 <button
                   key={i}
                   onClick={() => {
-                    setInput(ex);
-                    onSearch(ex);
+                    setInput(ex.query);
+                    onSearch(ex.query);
                   }}
-                  className="group max-w-full truncate rounded-full border border-line bg-paper px-3.5 py-1.5 text-xs text-muted transition-all hover:border-ink hover:text-ink"
+                  className="rounded-full border border-line bg-paper px-3.5 py-1.5 text-xs text-muted transition-all hover:border-ink hover:text-ink"
                 >
-                  {ex.length > 60 ? ex.slice(0, 57) + "…" : ex}
+                  {ex.label}
                 </button>
               ))}
             </div>
@@ -303,17 +334,19 @@ function Landing({ onSearch, error }: { onSearch: (q: string) => void; error: st
             The AI only extracts what you need. Our scoring engine does the
             ranking — so you can see exactly why a product wins.
           </p>
-          <div className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-5">
+          <div className="mx-auto mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
             {[
               { label: "Budget fit", w: "30%" },
               { label: "Priority match", w: "25%" },
               { label: "Use-case fit", w: "20%" },
               { label: "Rating", w: "15%" },
               { label: "Spec match", w: "10%" },
-            ].map((row) => (
+            ].map((row, i) => (
               <div
                 key={row.label}
-                className="rounded-xl border border-line bg-paper p-4"
+                className={`rounded-xl border border-line bg-paper p-4 ${
+                  i === 4 ? "col-span-2 sm:col-span-1" : ""
+                }`}
               >
                 <div className="font-display text-2xl font-semibold text-ink">
                   {row.w}
@@ -370,7 +403,7 @@ function BestMatchExplanation({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mt-12 rounded-2xl border border-ink bg-ink p-7 text-paper sm:p-9"
+      className="flex h-full flex-col rounded-2xl border border-ink bg-ink p-7 text-paper sm:p-8"
     >
       <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-paper/50">
         Why this matches you

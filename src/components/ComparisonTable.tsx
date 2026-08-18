@@ -36,17 +36,22 @@ export function ComparisonTable({ products }: ComparisonTableProps) {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="overflow-hidden rounded-2xl border border-line bg-paper"
     >
-      <div className="border-b border-line/60 px-6 py-4">
-        <h3 className="font-display text-lg font-medium text-ink">
-          Side-by-side comparison
-        </h3>
-        <p className="mt-0.5 text-xs text-muted">
-          Top {products.length} products, ranked by your priorities
-        </p>
+      <div className="flex items-end justify-between gap-3 border-b border-line/60 px-6 py-4">
+        <div>
+          <h3 className="font-display text-lg font-medium text-ink">
+            Side-by-side comparison
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Top {products.length} products, ranked by your priorities
+          </p>
+        </div>
+        <span className="whitespace-nowrap text-[11px] font-medium text-muted sm:hidden">
+          Swipe to compare →
+        </span>
       </div>
 
-      <div className="overflow-x-auto hide-scrollbar">
-        <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-line/60">
               <th className="w-32 px-6 py-3 text-left text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
