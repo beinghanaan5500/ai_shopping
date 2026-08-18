@@ -5,6 +5,7 @@ import type {
   ScoreBreakdown,
   MatchReason,
 } from "@/types";
+import { inrToUsd, usdToInr, formatUSDAsINR, formatINR } from "./currency";
 
 const WEIGHTS = {
   budgetFit: 0.3,
@@ -29,35 +30,36 @@ function specScoreForPriority(
 
   if (p === "battery" || p === "battery life") {
     const b = s.battery || "";
-    const m = b.match(/(\d+)\s*(mah|hrs|hr)/i);
+    const m = b.match(/(\d+)\s*(mah|hrs|hr|days?)/i);
     if (m) {
       const v = parseInt(m[1], 10);
       if (/mah/i.test(b)) return clamp01(v / 6000);
+      if (/days?/i.test(b)) return clamp01((v * 24) / 168);
       return clamp01(v / 16);
     }
-    return 0.4;
+    return 0.5;
   }
   if (p === "performance" || p === "processor" || p === "speed") {
     const perf = s.performance || "";
     const perfLower = perf.toLowerCase();
-    if (/8 gen 2|7 gen 1|dimensity 7|tensor g3|m2|ryzen 7|ryzen 9/i.test(perfLower)) return 0.95;
-    if (/i7|ryzen 5|dimensity|7 gen/i.test(perfLower)) return 0.8;
-    if (/i5|helio|a16/i.test(perfLower)) return 0.65;
-    if (perf) return 0.5;
-    return 0.4;
+    if (/8 gen 2|7 gen 1|dimensity 7|tensor g3|m2|ryzen 7|ryzen 9|i7/i.test(perfLower)) return 0.95;
+    if (/i5|ryzen 5|dimensity|7 gen|7s gen/i.test(perfLower)) return 0.8;
+    if (/helio|a15|a16/i.test(perfLower)) return 0.7;
+    if (perf) return 0.55;
+    return 0.45;
   }
   if (p === "camera") {
     const c = s.camera || "";
     const m = c.match(/(\d+)mp/i);
     if (m) return clamp01(parseInt(m[1], 10) / 200);
-    return 0.4;
+    return 0.45;
   }
   if (p === "display" || p === "screen") {
     const d = s.display || "";
-    if (/oled|amoled|retina|2.8k|qhd|4k|120hz|165hz/i.test(d)) return 0.95;
-    if (/ips|fhd|lcd/i.test(d)) return 0.6;
-    if (d) return 0.5;
-    return 0.4;
+    if (/oled|amoled|retina|2.8k|qhd|4k|120hz|144hz|165hz/i.test(d)) return 0.95;
+    if (/ips|fhd|lcd/i.test(d)) return 0.65;
+    if (d) return 0.55;
+    return 0.45;
   }
   if (p === "storage") {
     const st = s.storage || "";
@@ -66,10 +68,10 @@ function specScoreForPriority(
       const v = parseInt(m[1], 10) * (/tb/i.test(m[2]) ? 1000 : 1);
       return clamp01(v / 1024);
     }
-    return 0.4;
+    return 0.5;
   }
   if (p === "price" || p === "budget" || p === "value") {
-    return 0.7;
+    return 0.75;
   }
   if (p === "portability" || p === "weight" || p === "lightweight") {
     const w = s.portability || s.weight || "";
@@ -79,38 +81,38 @@ function specScoreForPriority(
       if (/kg/i.test(m[2])) v *= 1000;
       return clamp01(1 - v / 3000);
     }
-    return 0.5;
+    return 0.55;
   }
   if (p === "durability" || p === "build") {
     const d = s.durability || "";
-    if (/ip68|mil-std|water|ripstop|rubber/i.test(d.toLowerCase())) return 0.9;
-    if (d) return 0.7;
+    if (/ip68|5atm|mil-std|water|ripstop|rubber/i.test(d.toLowerCase())) return 0.95;
+    if (d) return 0.75;
     return 0.5;
   }
   if (p === "sound" || p === "audio") {
     const so = s.sound || "";
-    if (/dolby|anc|spatial|dts/i.test(so.toLowerCase())) return 0.95;
-    if (so) return 0.7;
+    if (/dolby|anc|spatial|dts|hi-res/i.test(so.toLowerCase())) return 0.95;
+    if (so) return 0.75;
     return 0.5;
   }
   if (p === "comfort") {
     const c = s.comfort || "";
-    if (/memory foam|plush|gel|cushion/i.test(c.toLowerCase())) return 0.95;
-    if (c) return 0.7;
+    if (/memory foam|plush|gel|cushion|ergonomic/i.test(c.toLowerCase())) return 0.95;
+    if (c) return 0.75;
     return 0.5;
   }
   if (p === "design") {
-    return 0.6;
+    return 0.7;
   }
   if (p === "gaming") {
     if (s.gaming) return 0.95;
-    if (/gaming|165hz|120hz|8 gen|gpu/i.test(title)) return 0.8;
-    return 0.3;
+    if (/gaming|165hz|144hz|120hz|8 gen|gpu|cooling/i.test(title)) return 0.85;
+    return 0.4;
   }
   if (p === "productivity" || p === "college" || p === "work") {
     if (s.productivity) return 0.9;
-    if (/i5|i7|ryzen 5|ryzen 7|16gb|32gb/i.test((s.performance || "") + " " + (s.storage || ""))) return 0.8;
-    return 0.5;
+    if (/i5|i7|ryzen 5|ryzen 7|16gb|32gb|512gb|1tb/i.test((s.performance || "") + " " + (s.storage || ""))) return 0.85;
+    return 0.55;
   }
   return 0.5;
 }
@@ -128,42 +130,42 @@ function useCaseScore(product: Product, useCase: string): number {
   ).toLowerCase();
 
   if (u === "gaming") {
-    if (/gaming|gpu|165hz|120hz|8 gen|dimensity 7|snapdragon 8/i.test(text)) return 0.95;
-    return 0.3;
+    if (/gaming|gpu|165hz|144hz|120hz|8 gen|dimensity|snapdragon 8/i.test(text)) return 0.95;
+    return 0.35;
   }
   if (u === "college" || u === "student" || u === "study") {
-    if (/college|student|productivity|lightweight|portability|16gb|14/i.test(text)) return 0.85;
-    return 0.5;
+    if (/college|student|productivity|lightweight|portability|16gb|14|ssd/i.test(text)) return 0.88;
+    return 0.55;
   }
   if (u === "work" || u === "office" || u === "productivity") {
-    if (/productivity|office|work|16gb|32gb|ssd/i.test(text)) return 0.85;
-    return 0.5;
+    if (/productivity|office|work|16gb|32gb|ssd|ryzen|intel/i.test(text)) return 0.88;
+    return 0.55;
   }
   if (u === "photography" || u === "camera") {
-    if (/camera|mp|full-frame|aps|oled/i.test(text)) return 0.9;
-    return 0.3;
+    if (/camera|mp|full-frame|aps|oled|ois/i.test(text)) return 0.92;
+    return 0.35;
   }
   if (u === "travel" || u === "commute") {
-    if (/portab|light|compact|noise cancel|anc|wireless/i.test(text)) return 0.85;
-    return 0.4;
+    if (/portab|light|compact|noise cancel|anc|wireless/i.test(text)) return 0.88;
+    return 0.45;
   }
   if (u === "fitness" || u === "running" || u === "workout") {
-    if (/fitness|heart|spo2|gps|cushion|running|sport/i.test(text)) return 0.9;
-    return 0.3;
+    if (/fitness|heart|spo2|gps|cushion|running|sport|swim|tracking/i.test(text)) return 0.92;
+    return 0.35;
   }
   if (u === "entertainment" || u === "media" || u === "movies") {
     if (/oled|amoled|dolby|spatial|4k|120hz/i.test(text)) return 0.9;
-    return 0.5;
+    return 0.55;
   }
   if (u === "budget" || u === "value" || u === "cheap") {
-    return 0.7;
+    return 0.75;
   }
   return 0.5;
 }
 
 function specMatchScore(product: Product, mustHave: Record<string, string>): number {
   const keys = Object.keys(mustHave);
-  if (keys.length === 0) return 0.7;
+  if (keys.length === 0) return 0.85; // neutral benchmark when no hard constraints are specified
   let total = 0;
   for (const key of keys) {
     const required = mustHave[key].toLowerCase();
@@ -177,8 +179,8 @@ function specMatchScore(product: Product, mustHave: Record<string, string>): num
         (v || "").toLowerCase().includes(required),
       )
     )
-      total += 0.7;
-    else total += 0.2;
+      total += 0.75;
+    else total += 0.25;
   }
   return total / keys.length;
 }
@@ -189,15 +191,20 @@ export function scoreProduct(
   minPrice: number,
   maxPrice: number,
 ): RankedProduct {
+  // Normalize budget scale: if budget is given in INR (> 2000), convert to USD scale for catalog comparison
+  const targetBudgetUSD = req.maxBudget && req.maxBudget > 0
+    ? (req.maxBudget > 2000 ? inrToUsd(req.maxBudget) : req.maxBudget)
+    : null;
+
   // Budget fit
   let budgetFit: number;
-  if (req.maxBudget && req.maxBudget > 0) {
-    if (product.price <= req.maxBudget) {
-      const range = Math.max(req.maxBudget - minPrice, 1);
-      const headroom = req.maxBudget - product.price;
+  if (targetBudgetUSD && targetBudgetUSD > 0) {
+    if (product.price <= targetBudgetUSD) {
+      const range = Math.max(targetBudgetUSD - minPrice, 1);
+      const headroom = targetBudgetUSD - product.price;
       budgetFit = clamp01(0.7 + 0.3 * (1 - headroom / range));
     } else {
-      const over = (product.price - req.maxBudget) / req.maxBudget;
+      const over = (product.price - targetBudgetUSD) / targetBudgetUSD;
       budgetFit = clamp01(0.5 - over * 0.5);
     }
   } else {
@@ -262,16 +269,21 @@ function buildReasons(
 ): MatchReason[] {
   const reasons: MatchReason[] = [];
 
-  if (req.maxBudget && product.price <= req.maxBudget) {
-    reasons.push({
-      label: `Within budget ($${product.price} ≤ $${req.maxBudget})`,
-      type: "positive",
-    });
-  } else if (req.maxBudget) {
-    reasons.push({
-      label: `Over budget ($${product.price} > $${req.maxBudget})`,
-      type: "warning",
-    });
+  if (req.maxBudget && req.maxBudget > 0) {
+    const userBudgetINR = req.maxBudget > 2000 ? req.maxBudget : usdToInr(req.maxBudget);
+    const productPriceINR = usdToInr(product.price);
+
+    if (productPriceINR <= userBudgetINR) {
+      reasons.push({
+        label: `Within budget (${formatUSDAsINR(product.price)} ≤ ${formatINR(userBudgetINR)})`,
+        type: "positive",
+      });
+    } else {
+      reasons.push({
+        label: `Over budget (${formatUSDAsINR(product.price)} > ${formatINR(userBudgetINR)})`,
+        type: "warning",
+      });
+    }
   }
 
   const topPriorities = req.priorities.slice(0, 3);
@@ -310,6 +322,46 @@ function buildReasons(
   return reasons.slice(0, 5);
 }
 
+function generateTradeoff(
+  best: RankedProduct,
+  runnerUp: RankedProduct | undefined,
+  req: Requirements,
+): string | undefined {
+  if (!runnerUp) return undefined;
+
+  const p1 = req.priorities[0]?.toLowerCase();
+  const p2 = req.priorities[1]?.toLowerCase();
+
+  // Check if runner up has a specific priority spec advantage
+  if (p2) {
+    const bestP2Score = specScoreForPriority(best, p2);
+    const runnerP2Score = specScoreForPriority(runnerUp, p2);
+    if (runnerP2Score > bestP2Score + 0.1) {
+      const runnerSpec = runnerUp.specs[p2] || "";
+      return `Prioritizes ${p1 || "overall fit"} over ${p2}. If ${p2} is critical, ${runnerUp.title} offers ${runnerSpec ? `${runnerSpec}` : `a higher ${p2} rating`}.`;
+    }
+  }
+
+  // Check if runner-up is noticeably cheaper (> ₹3,000 difference)
+  const bestINR = usdToInr(best.price);
+  const runnerINR = usdToInr(runnerUp.price);
+  if (bestINR > runnerINR + 3000) {
+    return `Costs slightly more than ${runnerUp.title} (${formatINR(runnerINR)}), but delivers stronger specs against your top priorities.`;
+  }
+
+  // Check if runner-up has a higher rating
+  if (runnerUp.rating > best.rating + 0.3) {
+    return `Has a slightly lower customer rating (${best.rating.toFixed(1)}★ vs ${runnerUp.rating.toFixed(1)}★), but achieved a higher match score for your stated priorities.`;
+  }
+
+  // If user explicitly prioritized battery over camera:
+  if (p1 === "battery" && (req.priorities.includes("camera") || req.useCases.includes("photography"))) {
+    return "Optimizes heavily for battery endurance and performance over professional photography.";
+  }
+
+  return undefined;
+}
+
 export function rankProducts(
   products: Product[],
   req: Requirements,
@@ -323,6 +375,10 @@ export function rankProducts(
   const ranked = products.map((p) => scoreProduct(p, req, minPrice, maxPrice));
   ranked.sort((a, b) => b.matchPercentage - a.matchPercentage);
 
+  if (ranked.length > 0) {
+    ranked[0].tradeoff = generateTradeoff(ranked[0], ranked[1], req);
+  }
+
   return ranked;
 }
 
@@ -333,23 +389,39 @@ export function filterProducts(
   let filtered = products;
 
   if (req.maxBudget && req.maxBudget > 0) {
-    // Keep within budget, but if too few, relax to 1.25x budget
-    const inBudget = filtered.filter((p) => p.price <= req.maxBudget!);
-    if (inBudget.length >= 3) {
+    const userBudgetINR = req.maxBudget > 2000 ? req.maxBudget : usdToInr(req.maxBudget);
+
+    // 1. Strict within-budget candidate pool
+    const inBudget = filtered.filter((p) => {
+      const pInr = p.priceINR || usdToInr(p.price);
+      return pInr <= userBudgetINR;
+    });
+
+    if (inBudget.length > 0) {
       filtered = inBudget;
     } else {
-      const relaxed = filtered.filter(
-        (p) => p.price <= req.maxBudget! * 1.25,
-      );
-      if (relaxed.length >= 3) filtered = relaxed;
+      // 2. Tolerance check (within 15% of budget, e.g. ₹10,789 for ₹10,000 request)
+      const nearBudget = filtered.filter((p) => {
+        const pInr = p.priceINR || usdToInr(p.price);
+        return pInr <= userBudgetINR * 1.15;
+      });
+      if (nearBudget.length > 0) {
+        filtered = nearBudget;
+      } else {
+        // Return empty so the assistant never recommends an over-budget product (e.g. ₹50k phone for ₹10k query)
+        filtered = [];
+      }
     }
   }
 
-  // Dedupe by title
-  const seen = new Set<string>();
+  // Dedupe by ID and normalized title
+  const seenIds = new Set<number>();
+  const seenTitles = new Set<string>();
   filtered = filtered.filter((p) => {
-    if (seen.has(p.title)) return false;
-    seen.add(p.title);
+    const normTitle = p.title.toLowerCase().trim();
+    if (seenIds.has(p.id) || seenTitles.has(normTitle)) return false;
+    seenIds.add(p.id);
+    seenTitles.add(normTitle);
     return true;
   });
 

@@ -16,6 +16,11 @@ interface ExtractedRequirements {
 }
 
 const CATEGORY_MAP: Record<string, string> = {
+  smartwatch: "smartwatches",
+  "smart watch": "smartwatches",
+  smartwatches: "smartwatches",
+  watch: "smartwatches",
+  watches: "smartwatches",
   smartphone: "smartphones",
   phone: "smartphones",
   mobile: "smartphones",
@@ -31,8 +36,6 @@ const CATEGORY_MAP: Record<string, string> = {
   earphones: "headphones",
   speaker: "headphones",
   speakers: "headphones",
-  watch: "womens-watches",
-  smartwatch: "womens-watches",
   camera: "cameras",
   dslr: "cameras",
   television: "televisions",
@@ -59,7 +62,8 @@ const CATEGORY_MAP: Record<string, string> = {
 function mapCategory(cat: string): string {
   const lower = cat.toLowerCase().trim();
   if (CATEGORY_MAP[lower]) return CATEGORY_MAP[lower];
-  for (const key of Object.keys(CATEGORY_MAP)) {
+  const sortedKeys = Object.keys(CATEGORY_MAP).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
     if (lower.includes(key)) return CATEGORY_MAP[key];
   }
   return lower;
@@ -100,11 +104,11 @@ Deno.serve(async (req: Request) => {
   "searchKeywords": ["2-4 keywords to search a product catalog"]
 }
 Rules:
-- maxBudget is a number (e.g. 40000), or null if not specified
-- priorities must be ordered from most to least important
-- If currency symbol like ₹ or $ is present, extract the numeric value only
-- Keep values simple and lowercase
-- Respond with valid JSON only, no backticks, no code fences, no explanation`;
+- maxBudget is an integer number in standard currency units (e.g. 40000 for ₹40,000, 40k, or Rs 40,000; 500 for $500). If '40k' or '40 thousand' is written, output 40000. Output null if not specified.
+- priorities must be ordered from most to least important.
+- If currency symbols like ₹, Rs, INR, or $ are present, extract the numeric value only.
+- Keep values simple and lowercase.
+- Respond with valid JSON only, no backticks, no code fences, no explanation.`;
 
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",

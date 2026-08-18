@@ -1,6 +1,12 @@
 import type { Requirements } from "@/types";
+import { USD_TO_INR_RATE } from "./currency";
 
 const CATEGORY_MAP: Record<string, string> = {
+  smartwatch: "smartwatches",
+  "smart watch": "smartwatches",
+  smartwatches: "smartwatches",
+  watch: "smartwatches",
+  watches: "smartwatches",
   smartphone: "smartphones",
   phone: "smartphones",
   mobile: "smartphones",
@@ -16,8 +22,6 @@ const CATEGORY_MAP: Record<string, string> = {
   earphones: "headphones",
   speaker: "headphones",
   speakers: "headphones",
-  watch: "womens-watches",
-  smartwatch: "womens-watches",
   camera: "cameras",
   dslr: "cameras",
   television: "televisions",
@@ -38,70 +42,123 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 const PRIORITY_KEYWORDS: Record<string, string[]> = {
-  battery: ["battery", "battery life", "charge", "long lasting"],
-  camera: ["camera", "photo", "photography", "picture"],
-  performance: ["performance", "speed", "fast", "processor", "cpu", "chip"],
-  display: ["display", "screen", "resolution", "oled", "amoled"],
-  storage: ["storage", "memory", "space", "gb"],
-  portability: ["portability", "portable", "light", "lightweight", "weight", "thin"],
-  durability: ["durability", "durable", "build", "rugged", "waterproof"],
-  sound: ["sound", "audio", "noise", "anc", "bass"],
-  comfort: ["comfort", "comfortable", "ergonomic"],
-  design: ["design", "look", "aesthetic", "premium"],
-  gaming: ["gaming", "game", "fps"],
-  productivity: ["productivity", "work", "office", "multitask"],
-  price: ["price", "budget", "cheap", "affordable", "value", "cost"],
+  battery: ["battery", "battery life", "charge", "long lasting", "mah", "backup"],
+  camera: ["camera", "photo", "photography", "picture", "mp", "video", "sensor"],
+  performance: ["performance", "speed", "fast", "processor", "cpu", "chip", "ram", "lag free", "smooth"],
+  display: ["display", "screen", "resolution", "oled", "amoled", "120hz", "refresh rate", "brightness"],
+  storage: ["storage", "memory", "space", "gb", "tb", "ssd"],
+  portability: ["portability", "portable", "light", "lightweight", "weight", "thin", "compact"],
+  durability: ["durability", "durable", "build", "rugged", "waterproof", "ip68", "tough"],
+  sound: ["sound", "audio", "noise", "anc", "bass", "clear audio", "noise cancellation"],
+  comfort: ["comfort", "comfortable", "ergonomic", "fit"],
+  design: ["design", "look", "aesthetic", "premium", "finish"],
+  gaming: ["gaming", "game", "fps", "gpu", "graphics", "high frame"],
+  productivity: ["productivity", "work", "office", "multitask", "coding", "programming"],
+  price: ["price", "budget", "cheap", "affordable", "value", "cost", "pocket friendly"],
 };
 
 const USE_CASE_KEYWORDS: Record<string, string[]> = {
-  gaming: ["gaming", "game", "games", "gamer"],
-  college: ["college", "student", "study", "university", "school"],
-  work: ["work", "office", "business", "professional"],
-  productivity: ["productivity", "multitask", "coding", "programming"],
-  photography: ["photography", "photo", "camera work"],
-  travel: ["travel", "commute", "trip", "flying"],
-  fitness: ["fitness", "running", "workout", "gym", "exercise", "health"],
-  entertainment: ["entertainment", "movies", "media", "streaming", "music"],
-  budget: ["budget", "cheap", "affordable"],
+  gaming: ["gaming", "game", "games", "gamer", "fps", "esports"],
+  college: ["college", "student", "study", "university", "school", "classes", "campus"],
+  work: ["work", "office", "business", "professional", "remote"],
+  productivity: ["productivity", "multitask", "coding", "programming", "developer"],
+  photography: ["photography", "photo", "camera work", "vlogging", "creator"],
+  travel: ["travel", "commute", "trip", "flying", "transit"],
+  fitness: ["fitness", "running", "workout", "gym", "exercise", "health", "sports", "tracking"],
+  entertainment: ["entertainment", "movies", "media", "streaming", "music", "binge", "netflix"],
+  budget: ["budget", "cheap", "affordable", "value for money"],
 };
 
-function mapCategory(cat: string): string {
-  const lower = cat.toLowerCase().trim();
-  if (CATEGORY_MAP[lower]) return CATEGORY_MAP[lower];
-  for (const key of Object.keys(CATEGORY_MAP)) {
-    if (lower.includes(key)) return CATEGORY_MAP[key];
+function parseIndianBudget(text: string): number | null {
+  // Pattern 1: numbers with 'k' or 'thousand' with prefix (under 40k, budget ₹40k, rs. 50k, 15 k, 40 thousand)
+  const kWithPrefixMatch = text.match(
+    /(?:under|below|less than|max(?:imum)?|up to|within|around|≤|budget(?:\s*(?:of|:))?)\s*(?:₹|rs\.?|inr|\$)?\s*(\d+(?:\.\d+)?)\s*(?:k\b|thousand\b)/i,
+  );
+  if (kWithPrefixMatch) {
+    return Math.round(parseFloat(kWithPrefixMatch[1]) * 1000);
   }
-  return lower;
+
+  // Pattern 2: Lakhs / Lac format (e.g. 1.9 lakh, 1.5L, 2 lakhs, 1.9 lac)
+  const lakhMatch = text.match(/(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:lakhs?|lacs?|l\b)/i);
+  if (lakhMatch) {
+    return Math.round(parseFloat(lakhMatch[1]) * 100000);
+  }
+
+  // Pattern 3: ₹ or Rs symbol with 'k' or 'thousand' (₹40k, Rs 50k, INR 15k)
+  const symbolKMatch = text.match(/(?:₹|rs\.?|inr)\s*(\d+(?:\.\d+)?)\s*(?:k\b|thousand\b)/i);
+  if (symbolKMatch) {
+    return Math.round(parseFloat(symbolKMatch[1]) * 1000);
+  }
+
+  // Pattern 4: Explicit INR symbols followed by full number (₹40,000, ₹1 90 000, Rs. 40000, INR 50000)
+  const inrSymbolMatch = text.match(/(?:₹|rs\.?|inr)\s*([\d\s,]+)/i);
+  if (inrSymbolMatch) {
+    const raw = parseInt(inrSymbolMatch[1].replace(/[\s,]/g, ""), 10);
+    if (!isNaN(raw) && raw > 0) return raw;
+  }
+
+  // Pattern 5: Number followed by 'INR', 'Rs', or 'Rupees' (40000 inr, 1 90 000 rs, 50,000 rs, 40k inr)
+  const trailingInrMatch = text.match(/([\d\s,]+)\s*(?:inr|rs\.?|rupees?)/i);
+  if (trailingInrMatch) {
+    const raw = parseInt(trailingInrMatch[1].replace(/[\s,]/g, ""), 10);
+    if (!isNaN(raw) && raw > 0) return raw;
+  }
+
+  // Pattern 6: Standalone '40k' or '40 thousand'
+  const standaloneKMatch = text.match(/\b(\d+(?:\.\d+)?)\s*(?:k\b|thousand\b)/i);
+  if (standaloneKMatch) {
+    return Math.round(parseFloat(standaloneKMatch[1]) * 1000);
+  }
+
+  // Pattern 7: Standard budget phrase with full number (under 40000, under 1 90 000, below 50000, max 70,000)
+  const generalBudgetMatch = text.match(
+    /(?:under|below|less than|max(?:imum)?|up to|within|around|≤|budget(?:\s*(?:of|:))?)\s*([\d\s,]+)/i,
+  );
+  if (generalBudgetMatch) {
+    const raw = parseInt(generalBudgetMatch[1].replace(/[\s,]/g, ""), 10);
+    if (!isNaN(raw) && raw > 0) {
+      // If the number is small like 40 or 50 without 'k', but likely meant thousands
+      if (raw <= 200 && (text.includes("phone") || text.includes("laptop") || text.includes("mobile"))) {
+        return raw * 1000;
+      }
+      return raw;
+    }
+  }
+
+  // Pattern 8: USD dollar amount ($500 -> converted to INR)
+  const dollarMatch = text.match(/\$\s*([\d\s,]+)/);
+  if (dollarMatch) {
+    const usd = parseInt(dollarMatch[1].replace(/[\s,]/g, ""), 10);
+    if (!isNaN(usd) && usd > 0) {
+      return Math.round(usd * USD_TO_INR_RATE);
+    }
+  }
+
+  return null;
 }
 
 export function extractRequirementsLocal(query: string): Requirements {
   const text = query.toLowerCase();
 
-  // Category
+  // Category detection (match longest keywords first to prevent 'phone' matching 'headphones')
   let category = "smartphones";
-  for (const key of Object.keys(CATEGORY_MAP)) {
+  const sortedCatKeys = Object.keys(CATEGORY_MAP).sort((a, b) => b.length - a.length);
+  for (const key of sortedCatKeys) {
     if (text.includes(key)) {
       category = CATEGORY_MAP[key];
       break;
     }
   }
 
-  // Budget
-  let maxBudget: number | null = null;
-  const budgetMatch = text.match(/(?:under|below|less than|max(?:imum)?|up to|within|around|≤)\s*\$?\s*(\d[\d,]*)/);
-  if (budgetMatch) {
-    maxBudget = parseInt(budgetMatch[1].replace(/,/g, ""), 10);
-  } else {
-    const dollarMatch = text.match(/\$\s*(\d[\d,]*)/);
-    if (dollarMatch) maxBudget = parseInt(dollarMatch[1].replace(/,/g, ""), 10);
-  }
+  // Budget detection (normalized to INR)
+  const maxBudget = parseIndianBudget(text);
 
-  // Priorities — detect "X matters more than Y" and "X is more important"
+  // Priorities — detect "X matters more than Y" and "X is my top priority"
   const priorities: string[] = [];
   const prioritySet = new Set<string>();
 
   const moreThanMatch = text.match(
-    /(\w+(?:\s\w+)?)\s+(?:matters|is|are)\s+more\s+(?:important|than)/,
+    /(\w+(?:\s\w+)?)\s+(?:matters|is|are)\s+more\s+(?:important|than)/i,
   );
   if (moreThanMatch) {
     const p = moreThanMatch[1].trim();
@@ -117,7 +174,7 @@ export function extractRequirementsLocal(query: string): Requirements {
   }
 
   const importantMatch = text.match(
-    /(\w+(?:\s\w+)?)\s+(?:is|are)\s+(?:my\s+)?(?:top|main|most)\s+priority/,
+    /(\w+(?:\s\w+)?)\s+(?:is|are)\s+(?:my\s+)?(?:top|main|most|first|primary)\s+priority/i,
   );
   if (importantMatch) {
     const p = importantMatch[1].trim();
@@ -156,10 +213,13 @@ export function extractRequirementsLocal(query: string): Requirements {
 
   // Search keywords
   const searchKeywords: string[] = [];
-  if (category) {
+  if (category === "smartwatches") {
+    searchKeywords.push("smartwatch", "watch");
+  } else if (category) {
     const singular = category.replace(/s$/, "").replace(/-/g, " ");
     searchKeywords.push(singular);
   }
+
   for (const uc of useCases.slice(0, 2)) {
     if (uc !== "budget") searchKeywords.push(uc);
   }

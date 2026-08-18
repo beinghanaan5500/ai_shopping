@@ -12,9 +12,10 @@ export function ScoreBar({ label, value, weight, delay = 0 }: ScoreBarProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between text-xs">
-        <span className="font-medium text-ink/80">{label}</span>
-        <span className="font-mono text-muted tabular-nums">
-          {pct}% <span className="text-muted/60">· {Math.round(weight * 100)}%</span>
+        <span className="font-medium text-ink/85">{label}</span>
+        <span className="font-mono text-[11px] text-muted tabular-nums">
+          <span className="font-bold text-ink">{pct}%</span>{" "}
+          <span className="text-muted/60">({Math.round(weight * 100)}% weight)</span>
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-line/60">

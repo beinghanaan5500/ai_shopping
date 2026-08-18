@@ -33,6 +33,10 @@ export interface Product {
   price: number;
   rating: number;
   category: string;
+  sourceCategory?: string;
+  sourcePrice?: number;
+  sourceCurrency?: string;
+  priceINR?: number;
   thumbnail: string;
   images: string[];
   description: string;
@@ -40,6 +44,7 @@ export interface Product {
   stock: number;
   tags: string[];
   specs: ProductSpecs;
+  dataQuality?: "high" | "medium" | "low";
 }
 
 export interface ScoreBreakdown {
@@ -55,6 +60,7 @@ export interface RankedProduct extends Product {
   score: ScoreBreakdown;
   matchPercentage: number;
   reasons: MatchReason[];
+  tradeoff?: string;
 }
 
 export interface MatchReason {
